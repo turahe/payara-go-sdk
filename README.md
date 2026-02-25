@@ -5,23 +5,24 @@ Production-grade Go SDK for [Payara API v1.0](https://doc.payara.id/docs/1.0/). 
 ## Installation
 
 ```bash
-go get github.com/payara-id/go-sdk/payara
-go get github.com/payara-id/go-sdk/payara/types
+go get github.com/turahe/payara-go-sdk/payara
+go get github.com/turahe/payara-go-sdk/payara/types
 ```
 
 For local development (clone this repo):
 
 ```bash
 # In your application's go.mod
-replace github.com/payara-id/go-sdk => /path/to/payara
+replace github.com/turahe/payara-go-sdk => /path/to/payara
 ```
 
 ## Configuration
 
 ```go
 import (
-    "github.com/payara-id/go-sdk/payara"
+    "github.com/turahe/payara-go-sdk/payara"
     "net/http"
+    "os"
     "time"
 )
 
@@ -34,6 +35,17 @@ cfg := &payara.Config{
 }
 client := payara.NewClient(cfg)
 ```
+
+### Loading credentials from .env
+
+Examples load `PAYARA_APP_ID` and `PAYARA_APP_SECRET` from a `.env` file in the project root (or next to the binary). Create `.env`:
+
+```env
+PAYARA_APP_ID="your-app-id"
+PAYARA_APP_SECRET="your-app-secret"
+```
+
+Then run the examples without exporting env vars; `make run-payment` and `make run-withdrawal` will use `.env` automatically.
 
 ## Environment setup
 
@@ -54,10 +66,45 @@ client = payara.NewClient(&payara.Config{
 
 Obtain **APP ID** and **APP Secret** from [Payara Merchant Dashboard](https://merchant.payara.id/) → Integrations.
 
+## Sandbox dummy accounts
+
+For testing in sandbox, use the official dummy accounts. See [Sandbox Data Dummy](https://doc.payara.id/docs/1.0/sandbox-data-dummy).
+
+| Bank        | bank_code | account_number | account_name |
+|-------------|-----------|----------------|--------------|
+| Bank Mandiri | 4       | 12340995811    | Ujang        |
+| Bank Central Asia | 5 | 12330922231 | Asep     |
+| Bank Jago Syariah | 6 | 12389583322 | Robert   |
+| OVO         | 281       | 081212239281   | Rudi         |
+| DANA        | 282       | 081212239133   | Zen          |
+| GOPAY       | 283       | 081212239222   | Malik        |
+
+In code:
+
+```go
+// Default (BCA / Asep)
+recipient := payara.DefaultSandboxAccount()
+
+// By bank code
+acc := payara.SandboxDummyAccountByBankCode("282") // DANA / Zen
+
+// Any from the list
+recipient := payara.SandboxDummyAccounts[3] // OVO / Rudi
+
+req := types.CreateDisbursementRequest{
+    ReferenceID:   "REF-UNIQUE-001",
+    Amount:        100000,
+    BankCode:      recipient.BankCode,
+    AccountNumber: recipient.AccountNumber,
+    AccountName:   recipient.AccountName,
+    Description:   "Payment",
+}
+```
+
 ## Login flow and token refresh
 
 - The client **does not** require you to call login manually. The first authenticated request triggers login (POST `/api/v1/login` with `username=app_id`, `password=app_secret`).
-- The access token is cached and **refreshed automatically** before expiry (token lifetime 3600s; refresh is triggered 5 minutes before expiry).
+- The access token is cached and **refreshed automatically** before expiry (API returns `expires_in` in seconds; refresh is triggered 5 minutes before expiry).
 - On **401 Unauthorized**, the client retries once after re-login.
 - All of this is **thread-safe** (mutex-protected token refresh).
 
@@ -85,19 +132,39 @@ if err != nil {
     return err
 }
 
-// Disbursement
+// Disbursement (use sandbox dummy in dev)
+recipient := payara.DefaultSandboxAccount()
 req := types.CreateDisbursementRequest{
     ReferenceID:   "REF-UNIQUE-001",
-    Amount:         100000, // IDR whole units (min 10_000, max 50_000_000)
-    BankCode:       "5",
-    AccountNumber:  "12330922231",
-    AccountName:    "Asep",
+    Amount:        100000, // IDR whole units (min 10_000, max 50_000_000)
+    BankCode:      recipient.BankCode,
+    AccountNumber: recipient.AccountNumber,
+    AccountName:   recipient.AccountName,
     Description:   "Salary payment",
 }
 resp, err := client.Transfer().CreateDisbursement(ctx, req)
 
 // Status
 status, err := client.Transfer().GetDisbursementStatus(ctx, resp.Data.TransactionID)
+```
+
+## Running the examples
+
+From the repo root (with `.env` in place):
+
+```bash
+make run-payment    # Balance + create disbursement + check status
+make run-withdrawal # Balance + withdrawal to sandbox dummy account
+```
+
+Other targets:
+
+```bash
+make build             # Build all packages
+make test              # Unit tests
+make test-integration  # Integration tests (needs PAYARA_APP_ID, PAYARA_APP_SECRET or .env)
+make clean             # Remove bin/ and cache
+make help              # List all targets
 ```
 
 ## Retry strategy
@@ -109,7 +176,7 @@ status, err := client.Transfer().GetDisbursementStatus(ctx, resp.Data.Transactio
 
 ## Callback handler
 
-Configure your callback URL in the Payara dashboard. Payara sends a POST with JSON body. Example handler (see `example/callback`):
+Configure your callback URL in the Payara dashboard (Integrations). Payara sends a POST with JSON body. Example handler (see `example/callback`):
 
 ```go
 http.HandleFunc("/callback/payara", callback.PayaraCallbackHandler)
@@ -147,12 +214,14 @@ if err != nil {
 
 ## Package layout
 
-- `payara` – client, config, auth, middleware, retry, errors, transfer, balance.
-- `payara/types` – request/response types and enums.
-- `example/payment_service` – full payment flow example.
-- `example/withdrawal_service` – withdrawal example.
-- `example/callback` – example callback HTTP handler.
+| Path | Description |
+|------|-------------|
+| `payara` | Client, config, auth, middleware, retry, errors, transfer, balance, sandbox dummy data |
+| `payara/types` | Request/response types and enums |
+| `example/payment_service` | Full payment flow (balance → disbursement → status) |
+| `example/withdrawal_service` | Withdrawal to sandbox dummy account |
+| `example/callback` | Example callback HTTP handler for Payara webhooks |
 
 ## License
 
-Use according to your organization’s policy. Payara API terms apply to API usage.
+Use according to your organization's policy. Payara API terms apply to API usage.

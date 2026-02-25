@@ -1,5 +1,11 @@
 package types
 
+import (
+	"encoding/json"
+	"strconv"
+	"strings"
+)
+
 // Meta is common response meta. Doc: timestamp, version (optional)
 type Meta struct {
 	Timestamp string  `json:"timestamp,omitempty"`
@@ -8,13 +14,37 @@ type Meta struct {
 }
 
 // LoginResponseData is the data object from login success response.
-// Doc: access_token, token_type "Bearer", expires_in (seconds), merchant_id, merchant_name
+// API may return expires_in as float (e.g. 3599.40778) and merchant_id as number (e.g. 206).
 type LoginResponseData struct {
-	AccessToken  string `json:"access_token"`
-	TokenType    string `json:"token_type"`
-	ExpiresIn    int    `json:"expires_in"` // Seconds until expiry
-	MerchantID   string `json:"merchant_id"`
-	MerchantName string `json:"merchant_name"`
+	AccessToken  string  `json:"access_token"`
+	TokenType    string  `json:"token_type"`
+	ExpiresIn    float64 `json:"expires_in"` // Seconds until expiry (API returns float)
+	MerchantID   FlexString `json:"merchant_id"`   // API returns number or string
+	MerchantName string  `json:"merchant_name"`
+}
+
+// FlexString unmarshals from JSON number or string (e.g. merchant_id can be 206 or "206").
+type FlexString string
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (f *FlexString) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 {
+		return nil
+	}
+	if data[0] == '"' {
+		var s string
+		if err := json.Unmarshal(data, &s); err != nil {
+			return err
+		}
+		*f = FlexString(s)
+		return nil
+	}
+	var n float64
+	if err := json.Unmarshal(data, &n); err != nil {
+		return err
+	}
+	*f = FlexString(strconv.FormatInt(int64(n), 10))
+	return nil
 }
 
 // GenericAPIResponse is the common envelope: success, message, data, meta.
@@ -96,13 +126,43 @@ type DisbursementStatusResponse struct {
 }
 
 // BalanceData is the data object from GET /api/v1/balance.
-// Doc: merchant_id, balance, currency (IDR), last_updated, status (ACTIVE|SUSPENDED|BLOCKED)
+// API may return merchant_id as number or string, and balance as number or string with thousand separators (e.g. "999.793.000").
 type BalanceData struct {
-	MerchantID  string        `json:"merchant_id"`
-	Balance     int64         `json:"balance"` // IDR whole units
+	MerchantID  FlexString    `json:"merchant_id"`
+	Balance     BalanceAmount `json:"balance"` // IDR whole units (API may return "999.793.000")
 	Currency    string        `json:"currency"`
 	LastUpdated string        `json:"last_updated"`
 	Status      AccountStatus `json:"status"`
+}
+
+// BalanceAmount is balance in IDR whole units. Unmarshals from JSON number or string with optional thousand separators (e.g. "999.793.000").
+type BalanceAmount int64
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (b *BalanceAmount) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 {
+		return nil
+	}
+	if data[0] == '"' {
+		var s string
+		if err := json.Unmarshal(data, &s); err != nil {
+			return err
+		}
+		s = strings.ReplaceAll(s, ".", "")
+		s = strings.ReplaceAll(s, ",", "")
+		n, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return err
+		}
+		*b = BalanceAmount(n)
+		return nil
+	}
+	var n int64
+	if err := json.Unmarshal(data, &n); err != nil {
+		return err
+	}
+	*b = BalanceAmount(n)
+	return nil
 }
 
 // BalanceResponse is the full response for GET /api/v1/balance

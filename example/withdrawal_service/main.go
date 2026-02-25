@@ -12,6 +12,7 @@ import (
 )
 
 func main() {
+	loadEnv()
 	cfg := &payara.Config{
 		BaseURL:   payara.BaseURLForEnvironment(payara.EnvironmentSandbox),
 		AppID:     os.Getenv("PAYARA_APP_ID"),
@@ -28,17 +29,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("balance: %v", err)
 	}
-	if bal.Data.Balance < 50000 {
+	if bal.Data != nil && bal.Data.Balance < 50000 {
 		log.Fatal("insufficient balance")
 	}
 
+	recipient := payara.DefaultSandboxAccount()
 	req := types.CreateDisbursementRequest{
 		ReferenceID:   "WD-" + time.Now().Format("20060102150405"),
 		Amount:        50000,
-		BankCode:      "5",
-		AccountNumber: "12330922231",
-		AccountName:   "Asep",
-		Description:   "Withdrawal",
+		BankCode:      recipient.BankCode,
+		AccountNumber: recipient.AccountNumber,
+		AccountName:   recipient.AccountName,
+		Description:   "Withdrawal (sandbox dummy)",
 	}
 	resp, err := client.Transfer().CreateDisbursement(ctx, req)
 	if err != nil {

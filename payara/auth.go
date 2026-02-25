@@ -57,7 +57,7 @@ func (c *Client) login(ctx context.Context) error {
 	if expirySec <= 0 {
 		expirySec = 3600
 	}
-	c.tokenExpiry = time.Now().Add(time.Duration(expirySec) * time.Second)
+	c.tokenExpiry = time.Now().Add(time.Duration(int(expirySec)) * time.Second)
 	if c.auth != nil {
 		c.auth.token = c.accessToken
 		c.auth.expiry = c.tokenExpiry

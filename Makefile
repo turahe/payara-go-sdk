@@ -41,12 +41,12 @@ clean:
 
 run-payment: $(BIN_DIR)
 	$(GO) build -o $(BIN_DIR)/payment_service ./example/payment_service
-	@echo "Run with: PAYARA_APP_ID=... PAYARA_APP_SECRET=... ./$(BIN_DIR)/payment_service"
+	@echo "Loading PAYARA_APP_ID and PAYARA_APP_SECRET from .env (if present)"
 	./$(BIN_DIR)/payment_service
 
 run-withdrawal: $(BIN_DIR)
 	$(GO) build -o $(BIN_DIR)/withdrawal_service ./example/withdrawal_service
-	@echo "Run with: PAYARA_APP_ID=... PAYARA_APP_SECRET=... ./$(BIN_DIR)/withdrawal_service"
+	@echo "Loading PAYARA_APP_ID and PAYARA_APP_SECRET from .env (if present)"
 	./$(BIN_DIR)/withdrawal_service
 
 $(BIN_DIR):
