@@ -6,7 +6,7 @@
 # Go
 GO := go
 GOFLAGS := -v
-MODULE := github.com/payara-id/go-sdk
+MODULE := github.com/turahe/payara-go-sdk
 
 # Binaries (for examples)
 BIN_DIR := bin

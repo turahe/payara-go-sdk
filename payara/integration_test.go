@@ -1,6 +1,6 @@
 //go:build integration
 
-package payara_test
+package payara
 
 import (
 	"context"
@@ -8,8 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/payara-id/go-sdk/payara"
-	"github.com/payara-id/go-sdk/payara/types"
+	"github.com/turahe/payara-go-sdk/payara/types"
 )
 
 // Integration tests require PAYARA_APP_ID and PAYARA_APP_SECRET (sandbox).
@@ -20,11 +19,11 @@ func TestIntegration_Balance(t *testing.T) {
 	if appID == "" || appSecret == "" {
 		t.Skip("set PAYARA_APP_ID and PAYARA_APP_SECRET for integration tests")
 	}
-	client := payara.NewClient(&payara.Config{
-		BaseURL:    payara.BaseURLForEnvironment(payara.EnvironmentSandbox),
-		AppID:      appID,
-		AppSecret:  appSecret,
-	}).WithEnvironment(payara.EnvironmentSandbox)
+	client := NewClient(&Config{
+		BaseURL:   BaseURLForEnvironment(EnvironmentSandbox),
+		AppID:     appID,
+		AppSecret: appSecret,
+	}).WithEnvironment(EnvironmentSandbox)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	bal, err := client.Balance().GetBalance(ctx)
@@ -43,11 +42,11 @@ func TestIntegration_Disbursement_Status(t *testing.T) {
 	if appID == "" || appSecret == "" {
 		t.Skip("set PAYARA_APP_ID and PAYARA_APP_SECRET for integration tests")
 	}
-	client := payara.NewClient(&payara.Config{
-		BaseURL:   payara.BaseURLForEnvironment(payara.EnvironmentSandbox),
+	client := NewClient(&Config{
+		BaseURL:   BaseURLForEnvironment(EnvironmentSandbox),
 		AppID:     appID,
 		AppSecret: appSecret,
-	}).WithEnvironment(payara.EnvironmentSandbox)
+	}).WithEnvironment(EnvironmentSandbox)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	req := types.CreateDisbursementRequest{
